@@ -25,7 +25,7 @@ gcloud services enable texttospeech.googleapis.com --project [YOUR_PROJECT_ID]
 
 ## 2. Generating Custom Audio (Any Word/Sentence)
 
-To generate any arbitrary text (e.g., words, phrases, phonics instructions), you can use the `generate_custom_audio.sh` script. This script dynamically retrieves your active project ID from your gcloud configuration.
+To generate any arbitrary text (e.g., words, phrases, phonics instructions), you can use the [`generate_custom_audio.sh`](./generate_custom_audio.sh) script. This script dynamically retrieves your active project ID from your gcloud configuration.
 
 **Usage:**
 
