@@ -22,14 +22,36 @@ echo " Flutter Dev External Storage Setup"
 echo "=============================================="
 echo -e "${NC}"
 
+# ---------- System Volume Filter ----------
+
+SYSTEM_VOLUMES="^(Macintosh HD|Preboot|Recovery|VM|Update)$"
+
 # ---------- Prevent Running While IDEs Open ----------
 
-# Android Studio detection uses -f for reliability
-if pgrep -x "Xcode" >/dev/null || \
-   pgrep -f "Android Studio.app" >/dev/null || \
-   pgrep -x "Simulator" >/dev/null; then
+# Check for Xcode app (current user only)
+XCODE_RUNNING=$(pgrep -u "$(id -u)" -x "Xcode")
+
+# Check for actual Simulator.app — NOT system XPC services (CoreSimulatorService, SimulatorTrampoline)
+SIMULATOR_RUNNING=$(pgrep -u "$(id -u)" -f "/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator$")
+
+# Dynamically locate Android Studio (supports Preview, Canary, Toolbox, custom paths)
+# Falls back to the standard path if Spotlight (mdfind) returns nothing
+ANDROID_STUDIO_PATH=$(mdfind "kMDItemCFBundleIdentifier == 'com.google.android.studio'" 2>/dev/null | head -n 1)
+[[ -z "$ANDROID_STUDIO_PATH" ]] && ANDROID_STUDIO_PATH="/Applications/Android Studio.app"
+
+# Check for the actual studio binary, not Gradle daemons spawned from its JBR
+ANDROID_RUNNING=$(pgrep -u "$(id -u)" -f "${ANDROID_STUDIO_PATH}/Contents/MacOS/studio$")
+
+if [[ -n "$XCODE_RUNNING" || -n "$SIMULATOR_RUNNING" || -n "$ANDROID_RUNNING" ]]; then
 
     echo -e "${RED}Please close Xcode, Android Studio, and Simulator first.${NC}"
+    echo ""
+
+    echo "Detected processes:"
+    [[ -n "$XCODE_RUNNING" ]] && echo "- Xcode"
+    [[ -n "$SIMULATOR_RUNNING" ]] && echo "- Simulator"
+    [[ -n "$ANDROID_RUNNING" ]] && echo "- Android Studio"
+
     echo ""
     read -p "Press ENTER to close..."
     exit 1
@@ -37,7 +59,10 @@ fi
 
 # ---------- Check External Drives ----------
 
-DRIVE_COUNT=$(ls /Volumes | grep -v "Macintosh HD" | wc -l)
+DRIVE_COUNT=$(find /Volumes -maxdepth 1 -mindepth 1 \
+| awk -F/ '{print $NF}' \
+| grep -Ev "$SYSTEM_VOLUMES" \
+| wc -l)
 
 if [[ "$DRIVE_COUNT" -eq 0 ]]; then
     echo -e "${RED}No external drives detected.${NC}"
@@ -49,7 +74,7 @@ fi
 # ---------- Drive Picker ----------
 
 DRIVE_NAME=$(osascript <<EOF
-set driveList to paragraphs of (do shell script "ls /Volumes | grep -v 'Macintosh HD'")
+set driveList to paragraphs of (do shell script "ls /Volumes | grep -Ev '$SYSTEM_VOLUMES'")
 
 set selectedDrive to choose from list driveList with prompt "Select your external drive:" without multiple selections allowed
 
@@ -75,7 +100,8 @@ echo ""
 
 # ---------- Verify APFS ----------
 
-FILESYSTEM=$(diskutil info "/Volumes/${DRIVE_NAME}" | awk -F': ' '/File System Personality/ {print $2}')
+FILESYSTEM=$(diskutil info "/Volumes/${DRIVE_NAME}" \
+| awk -F': ' '/File System Personality/ {print $2}')
 
 if [[ "$FILESYSTEM" != *"APFS"* && "$FILESYSTEM" != *"apfs"* ]]; then
     echo -e "${YELLOW}WARNING:${NC} Drive is not APFS formatted."
@@ -114,7 +140,10 @@ Always connect the drive before opening:
 • Xcode
 • Android Studio
 • Flutter
-• Simulators" buttons {"Cancel", "Continue"} default button "Continue" cancel button "Cancel"
+• Simulators
+
+Recommended filesystem:
+• APFS" buttons {"Cancel", "Continue"} default button "Continue" cancel button "Cancel"
 EOF
 then
     echo -e "${RED}Setup cancelled by user.${NC}"
@@ -149,7 +178,7 @@ move_and_link() {
         rm "$SRC"
     fi
 
-    # Already symlinked and valid
+    # Already valid symlink
     if [[ -L "$SRC" && -e "$SRC" ]]; then
         echo -e "${GREEN}Already symlinked. Skipping.${NC}"
         return
@@ -278,6 +307,12 @@ echo "• Xcode"
 echo "• Android Studio"
 echo "• Flutter"
 echo "• Simulators"
+
+echo ""
+echo "Recommended after setup:"
+echo "• flutter doctor"
+echo "• flutter build ios"
+echo "• flutter emulators"
 
 echo ""
 read -p "Press ENTER to close..."
