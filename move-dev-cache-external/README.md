@@ -12,6 +12,29 @@ It avoids moving sensitive Apple simulator infrastructure that can corrupt Xcode
 
 ---
 
+## 🚀 Automated Setup (Recommended)
+
+An interactive, automated macOS `.command` script is included to safely handle this process for you. 
+
+1. Simply double-click `setup_dev_storage.command` in Finder to run it.
+2. If macOS prevents it from running, you can make it executable via terminal first:
+   ```bash
+   chmod +x setup_dev_storage.command
+   ```
+   *(Note: The script in this repository already has executable permissions).*
+
+The script will:
+- Check for running IDEs to prevent corruption
+- Auto-detect your external drives
+- Prompt you to select the correct drive
+- Move your Xcode and Android caches safely
+- Create the necessary symlinks
+- Set proper permissions
+
+**Prefer to do it manually? Follow the manual guide below.**
+
+---
+
 # ⚠️ Important Notes
 
 Your external drive MUST be:
